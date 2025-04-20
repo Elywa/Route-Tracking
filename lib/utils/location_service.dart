@@ -7,38 +7,59 @@ class LocationService {
 
   // First Method to check if location service is enabled or not
 
-  Future<bool> checkAndRequestLocationService() async {
+  Future<void> checkAndRequestLocationService() async {
     var isEnabled = await location.serviceEnabled();
     if (!isEnabled) {
       isEnabled = await location.requestService();
       if (!isEnabled) {
         // Show a dialog or a snackbar to inform the user that location services are disabled
-        return false;
+        throw LocationServiceException(
+          "Location services are disabled. Please enable them in settings.",
+        );
       }
     }
-    return true;
   }
 
   // Second Method to check if location permission is granted or not
 
-  Future<bool> checkAndRequestLocationPermission() async {
+  Future<void> checkAndRequestLocationPermission() async {
     var permissionStatus = await location.hasPermission();
     if (permissionStatus == PermissionStatus.deniedForever) {
-      return false;
+      throw LocationPermissionException(
+        "Location permission is permanently denied. Please enable it in settings.",
+      );
     }
     if (permissionStatus == PermissionStatus.denied) {
       permissionStatus = await location.requestPermission();
-      return permissionStatus == PermissionStatus.granted;
+      if (permissionStatus != PermissionStatus.granted) {
+        // Show a dialog or a snackbar to inform the user that location permission is denied
+        throw LocationPermissionException(
+          "Location permission is denied. Please enable it in settings.",
+        );
+      }
     }
-    return true;
   }
 
-  void getRealTimeLocationData(void Function(LocationData)? onData) {
+  void getRealTimeLocationData(void Function(LocationData)? onData) async {
+    await checkAndRequestLocationService();
+    await checkAndRequestLocationPermission();
     location.changeSettings(distanceFilter: 2);
     location.onLocationChanged.listen(onData);
   }
 
   Future<LocationData> getLocation() async {
+    await checkAndRequestLocationService();
+    await checkAndRequestLocationPermission();
     return await location.getLocation();
   }
+}
+
+class LocationServiceException implements Exception {
+  final String message;
+  LocationServiceException(this.message);
+}
+
+class LocationPermissionException implements Exception {
+  final String message;
+  LocationPermissionException(this.message);
 }
